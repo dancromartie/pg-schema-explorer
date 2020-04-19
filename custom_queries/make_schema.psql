@@ -1,0 +1,39 @@
+CREATE SCHEMA IF NOT EXISTS schemadoc;
+-- GRANT USAGE, CREATE ON SCHEMA schemadoc TO somebody;
+
+CREATE TABLE IF NOT EXISTS schemadoc.tables (
+    id SERIAL PRIMARY KEY,
+    table_schema TEXT NOT NULL,
+    table_name TEXT NOT NULL,
+
+    description TEXT,
+    common_joins TEXT,
+    deprecated BOOLEAN,
+    orphaned BOOLEAN NOT NULL DEFAULT False,
+    docs_approved BOOLEAN DEFAULT False,
+    last_approval_at TIMESTAMP,
+    inserted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    intended_update_frequency TEXT,
+    rows_count INT,
+    rows_count_as_of TIMESTAMP,
+
+    UNIQUE (table_schema, table_name),
+    -- Don't allow deprecated to be unset if last_approval_at is set
+    CHECK (last_approval_at IS NULL OR deprecated IS NOT NULL)
+);
+
+CREATE TABLE IF NOT EXISTS schemadoc.columns (
+    id SERIAL PRIMARY KEY,
+    table_schema TEXT NOT NULL,
+    table_name TEXT NOT NULL,
+    column_name TEXT NOT NULL,
+    data_type TEXT NOT NULL,
+    inserted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    description TEXT,
+    example_vals TEXT,
+    also_goes_by TEXT,
+    orphaned BOOLEAN NOT NULL DEFAULT False,
+
+    UNIQUE (table_schema, table_name, column_name)
+);

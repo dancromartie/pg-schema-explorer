@@ -1,0 +1,7 @@
+Fancy: make a table schemadoc.required_client_version it can just have one row
+with a git hash or a semantic version.  When clients connect, it can say
+whether its out of date or not.
+
+Show what output would look like in a <pre> in a browser, but probably should
+stop short of putting it in any app.  You could just print the HTML to a local
+file.

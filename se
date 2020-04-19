@@ -1,0 +1,147 @@
+#!/usr/bin/env python
+"""
+se = schema explorer
+"""
+
+import argparse
+import os
+import subprocess
+import time
+
+import doc_table
+import doc_col
+import handle_orphaned_column
+import handle_orphaned_table
+import table_summary
+import search
+import sync_with_upstream
+import util
+
+
+THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def cli_describe(args):
+    summary = table_summary.format_table_summary(args.table_name)
+    util.call_less(summary)
+
+
+def cli_document(args):
+    row, obj_type = util.get_record_from_name(args.object)
+    if obj_type == "table":
+        if not args.cols:
+            doc_table.doc_table(args.object)
+        else:
+            # Document each column
+            cols = util.get_cols_for_table(row["table_schema"], row["table_name"])
+            for col in cols:
+                col_name = "{}.{}.{}".format(
+                    col["table_schema"], col["table_name"], col["column_name"])
+                doc_col.doc_col(col_name)
+                # Give the user a chance to ctrl-c
+                time.sleep(.5)
+    elif obj_type == "column":
+        doc_col.doc_col(args.object)
+
+
+def cli_refresh(args):
+    """
+    Refresh database tables and columns. i.e. see if there are new tables we need to document,
+    or new columns in old tables, or columns which have disappeared.
+    """
+
+    if args.table_list:
+        sync_with_upstream.update_table_list()
+
+    if args.column_list:
+        sync_with_upstream.update_column_list()
+
+    if args.orphans:
+        sync_with_upstream.update_orphans()
+
+
+def cli_stats(args):
+    util.print_table_stats()
+
+
+def cli_resolve(args):
+    if args.table:
+        handle_orphaned_table.handle_orphaned_table()
+    if args.column:
+        handle_orphaned_column.handle_orphaned_column()
+        
+
+def cli_search(args):
+    search.search(args.patterns, args.x, args.t, args.r, args.w, args.n)
+
+
+def main():
+    argument_parser = argparse.ArgumentParser()
+
+    subparsers = argument_parser.add_subparsers()
+
+    document_parser = subparsers.add_parser("document")
+    search_parser = subparsers.add_parser("search", aliases=["list"])
+    stats_parser = subparsers.add_parser("stats")
+    refresh_parser = subparsers.add_parser("refresh")
+    resolve_parser= subparsers.add_parser("resolve-orphans", aliases=["ro"])
+    describe_parser = subparsers.add_parser("describe")
+
+    describe_parser.add_argument("table_name", help="table you want to describe")
+    describe_parser.set_defaults(func=cli_describe)
+
+    search_parser.add_argument(
+        "patterns",
+        nargs="+",
+        help="if one pattern supplied, show tables matching this pattern. " +
+            "If 2, searches for columns matching 2nd pattern.")
+    search_parser.add_argument(
+        "-x",
+        action="store_true",
+        help=r"expanded display (key val pairs, like psql's \x or -x.)")
+    search_parser.add_argument(
+        "-t",
+        action="store_true",
+        help=r"tuples only (don't print headers, like psql's \t or -t.)")
+    search_parser.add_argument(
+        "-w",
+        action="store_true",
+        help=r"wrap long lines")
+    search_parser.add_argument(
+        "-r",
+        action="store_true",
+        help=r"show most recently inserted records")
+    search_parser.add_argument(
+        "-n",
+        action="store_true",
+        help=r"show only records with null descriptions")
+    search_parser.set_defaults(func=cli_search)
+
+    document_parser.add_argument(
+        "object",
+        help="a table/col. walks through text-editor flow for documenting the given object.")
+    document_parser.add_argument(
+        "--cols", action="store_true", help="document all cols for the table in a loop")
+    document_parser.set_defaults(func=cli_document)
+
+    resolve_parser.add_argument("--table", action="store_true", help="autoselects a orphaned table")
+    resolve_parser.add_argument("--column", action="store_true", help="autoselects a orphaned col")
+    resolve_parser.set_defaults(func=cli_resolve)
+
+    refresh_parser.add_argument("--table-list", action="store_true", help="refresh table list")
+    refresh_parser.add_argument("--column-list", action="store_true", help="refresh column list")
+    refresh_parser.add_argument(
+        "--orphans", action="store_true", help="find orphaned tables and columns")
+    refresh_parser.set_defaults(func=cli_refresh)
+
+    stats_parser.set_defaults(func=cli_stats)
+
+    cli_args = argument_parser.parse_args()
+    if "func" in cli_args:
+        cli_args.func(cli_args)
+    else:
+        argument_parser.print_help()
+
+
+if __name__ == "__main__":
+    main()
