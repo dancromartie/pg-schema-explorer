@@ -53,6 +53,10 @@ se search . -n
 # Disable headers and psql borders/formatting, e.g. for easier use with AWK, cut, Python, etc
 se search -t crm
 
+# Find columns with "mail" in the description
+se search . . | less # and search for mail
+se search . . | grep mail
+
 # "list" is an alias
 se list .
 
